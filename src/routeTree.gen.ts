@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AnneesRouteImport } from './routes/annees'
+import { Route as BulletinsRouteImport } from './routes/bulletins'
 import { Route as ClassesRouteImport } from './routes/classes'
 import { Route as ElevesRouteImport } from './routes/eleves'
 import { Route as MatieresRouteImport } from './routes/matieres'
@@ -24,6 +25,11 @@ const IndexRoute = IndexRouteImport.update({
 const AnneesRoute = AnneesRouteImport.update({
   id: '/annees',
   path: '/annees',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BulletinsRoute = BulletinsRouteImport.update({
+  id: '/bulletins',
+  path: '/bulletins',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClassesRoute = ClassesRouteImport.update({
@@ -50,6 +56,7 @@ const NotesRoute = NotesRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/annees': typeof AnneesRoute
+  '/bulletins': typeof BulletinsRoute
   '/classes': typeof ClassesRoute
   '/eleves': typeof ElevesRoute
   '/matieres': typeof MatieresRoute
@@ -58,6 +65,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/annees': typeof AnneesRoute
+  '/bulletins': typeof BulletinsRoute
   '/classes': typeof ClassesRoute
   '/eleves': typeof ElevesRoute
   '/matieres': typeof MatieresRoute
@@ -67,6 +75,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/annees': typeof AnneesRoute
+  '/bulletins': typeof BulletinsRoute
   '/classes': typeof ClassesRoute
   '/eleves': typeof ElevesRoute
   '/matieres': typeof MatieresRoute
@@ -74,13 +83,28 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/annees' | '/classes' | '/eleves' | '/matieres' | '/notes'
+  fullPaths:
+    | '/'
+    | '/annees'
+    | '/bulletins'
+    | '/classes'
+    | '/eleves'
+    | '/matieres'
+    | '/notes'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/annees' | '/classes' | '/eleves' | '/matieres' | '/notes'
+  to:
+    | '/'
+    | '/annees'
+    | '/bulletins'
+    | '/classes'
+    | '/eleves'
+    | '/matieres'
+    | '/notes'
   id:
     | '__root__'
     | '/'
     | '/annees'
+    | '/bulletins'
     | '/classes'
     | '/eleves'
     | '/matieres'
@@ -90,6 +114,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AnneesRoute: typeof AnneesRoute
+  BulletinsRoute: typeof BulletinsRoute
   ClassesRoute: typeof ClassesRoute
   ElevesRoute: typeof ElevesRoute
   MatieresRoute: typeof MatieresRoute
@@ -110,6 +135,13 @@ declare module '@tanstack/react-router' {
       path: '/annees'
       fullPath: '/annees'
       preLoaderRoute: typeof AnneesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bulletins': {
+      id: '/bulletins'
+      path: '/bulletins'
+      fullPath: '/bulletins'
+      preLoaderRoute: typeof BulletinsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/classes': {
@@ -146,6 +178,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnneesRoute: AnneesRoute,
+  BulletinsRoute: BulletinsRoute,
   ClassesRoute: ClassesRoute,
   ElevesRoute: ElevesRoute,
   MatieresRoute: MatieresRoute,

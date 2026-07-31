@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Fragment } from "react";
 import { ContextBar, EmptyState, Page, PageHeader } from "@/components/shell";
 import { Input } from "@/components/ui/input";
 import { findGrade, setGrade, studentsOf, useDB } from "@/lib/store";
@@ -66,17 +67,11 @@ function NotesPage() {
                 <tr className="bg-secondary/40 text-[11px] uppercase text-muted-foreground">
                   <th className="sticky left-0 z-10 bg-secondary/90 px-4 py-1" />
                   {db.subjects.map((s) => (
-                    <>
-                      <th key={`${s.id}-d`} className="border-l border-border px-2 py-1">
-                        Dev
-                      </th>
-                      <th key={`${s.id}-c`} className="px-2 py-1">
-                        Comp
-                      </th>
-                      <th key={`${s.id}-m`} className="px-2 py-1">
-                        Moy
-                      </th>
-                    </>
+                    <Fragment key={s.id}>
+                      <th className="border-l border-border px-2 py-1">Dev</th>
+                      <th className="px-2 py-1">Comp</th>
+                      <th className="px-2 py-1">Moy</th>
+                    </Fragment>
                   ))}
                   <th className="border-l border-border px-2 py-1" />
                   <th className="px-2 py-1" />
@@ -94,11 +89,8 @@ function NotesPage() {
                         const g = findGrade(db, el.id, s.id, trimesterId);
                         const moy = moyenneMatiere(g?.devoir ?? null, g?.composition ?? null);
                         return (
-                          <>
-                            <td
-                              key={`${el.id}-${s.id}-d`}
-                              className="border-l border-border px-1 py-1"
-                            >
+                          <Fragment key={s.id}>
+                            <td className="border-l border-border px-1 py-1">
                               <Input
                                 inputMode="decimal"
                                 aria-label={`${s.nom} devoir ${el.nom}`}
@@ -109,7 +101,7 @@ function NotesPage() {
                                 }
                               />
                             </td>
-                            <td key={`${el.id}-${s.id}-c`} className="px-1 py-1">
+                            <td className="px-1 py-1">
                               <Input
                                 inputMode="decimal"
                                 aria-label={`${s.nom} composition ${el.nom}`}
@@ -126,13 +118,10 @@ function NotesPage() {
                                 }
                               />
                             </td>
-                            <td
-                              key={`${el.id}-${s.id}-m`}
-                              className="px-2 py-1 text-center text-muted-foreground"
-                            >
+                            <td className="px-2 py-1 text-center text-muted-foreground">
                               {formatNote(moy, 1)}
                             </td>
-                          </>
+                          </Fragment>
                         );
                       })}
                       <td className="border-l border-border px-3 py-1 text-center font-semibold">
