@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   activeYear,
@@ -6,6 +7,7 @@ import {
   update,
   useDB,
 } from "@/lib/store";
+import { lock } from "@/lib/auth";
 import {
   Select,
   SelectContent,
@@ -13,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
 const nav = [
   { to: "/", label: "Tableau de bord" },
@@ -52,6 +55,16 @@ export function AppNav() {
               {item.label}
             </Link>
           ))}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-2 text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            onClick={() => lock()}
+            title="Verrouiller l'application"
+          >
+            <Lock className="size-4" />
+            Verrouiller
+          </Button>
         </div>
       </div>
     </nav>

@@ -20,7 +20,7 @@ export const Route = createFileRoute("/eleves")({
       {
         name: "description",
         content:
-          "Inscrire les élèves avec nom, prénom, sexe, classe et année scolaire, et gérer les listes par classe.",
+          "Inscrire les élèves avec nom, prénom, matricule, sexe, classe et année scolaire, et gérer les listes par classe.",
       },
       { property: "og:title", content: "Élèves — Bulletins CEG" },
       { property: "og:description", content: "Listes d'élèves par classe et par année scolaire." },
@@ -35,6 +35,7 @@ function ElevesPage() {
   const eleves = studentsOf(db, yearId, classeId);
   const [nom, setNom] = useState("");
   const [prenom, setPrenom] = useState("");
+  const [matricule, setMatricule] = useState("");
   const [sexe, setSexe] = useState<Sexe>("M");
 
   const ajouter = () => {
@@ -54,6 +55,7 @@ function ElevesPage() {
           id: uid(),
           nom: nom.trim().toUpperCase(),
           prenom: prenom.trim(),
+          matricule: matricule.trim(),
           sexe,
           classeId,
           yearId,
@@ -62,6 +64,7 @@ function ElevesPage() {
     }));
     setNom("");
     setPrenom("");
+    setMatricule("");
     toast.success("Élève inscrit");
   };
 
@@ -74,15 +77,22 @@ function ElevesPage() {
       <ContextBar />
 
       <div className="panel mb-8 flex flex-wrap items-end gap-3 p-5">
-        <Field label="Nom" className="min-w-40 flex-1">
+        <Field label="Nom" className="min-w-36 flex-1">
           <Input value={nom} placeholder="RAKOTO" onChange={(e) => setNom(e.target.value)} />
         </Field>
-        <Field label="Prénom" className="min-w-40 flex-1">
+        <Field label="Prénom" className="min-w-36 flex-1">
           <Input
             value={prenom}
             placeholder="Jean"
             onChange={(e) => setPrenom(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && ajouter()}
+          />
+        </Field>
+        <Field label="Matricule" className="min-w-32">
+          <Input
+            value={matricule}
+            placeholder="2025-001"
+            onChange={(e) => setMatricule(e.target.value)}
           />
         </Field>
         <Field label="Sexe">
@@ -102,22 +112,23 @@ function ElevesPage() {
       {eleves.length === 0 ? (
         <EmptyState message="Aucun élève dans cette classe pour l'année sélectionnée." />
       ) : (
-        <section className="panel overflow-hidden">
+        <section className="panel overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-secondary/70 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="px-5 py-3 w-12">N°</th>
-                <th className="px-5 py-3">Nom</th>
-                <th className="px-5 py-3">Prénom</th>
-                <th className="px-5 py-3 w-32">Sexe</th>
-                <th className="px-5 py-3 w-28" />
+                <th className="px-4 py-3 w-12">N°</th>
+                <th className="px-4 py-3">Nom</th>
+                <th className="px-4 py-3">Prénom</th>
+                <th className="px-4 py-3 w-36">Matricule</th>
+                <th className="px-4 py-3 w-28">Sexe</th>
+                <th className="px-4 py-3 w-20" />
               </tr>
             </thead>
             <tbody>
               {eleves.map((s, i) => (
                 <tr key={s.id} className="border-t border-border">
-                  <td className="px-5 py-2 text-muted-foreground">{i + 1}</td>
-                  <td className="px-5 py-2">
+                  <td className="px-4 py-2 text-muted-foreground">{i + 1}</td>
+                  <td className="px-4 py-2">
                     <Input
                       value={s.nom}
                       className="border-0 bg-transparent px-0 font-medium shadow-none focus-visible:ring-0"
@@ -131,7 +142,7 @@ function ElevesPage() {
                       }
                     />
                   </td>
-                  <td className="px-5 py-2">
+                  <td className="px-4 py-2">
                     <Input
                       value={s.prenom}
                       className="border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
@@ -145,7 +156,22 @@ function ElevesPage() {
                       }
                     />
                   </td>
-                  <td className="px-5 py-2">
+                  <td className="px-4 py-2">
+                    <Input
+                      value={s.matricule}
+                      className="h-9 shadow-none"
+                      placeholder="—"
+                      onChange={(e) =>
+                        update((d) => ({
+                          ...d,
+                          students: d.students.map((x) =>
+                            x.id === s.id ? { ...x, matricule: e.target.value } : x,
+                          ),
+                        }))
+                      }
+                    />
+                  </td>
+                  <td className="px-4 py-2">
                     <Select
                       value={s.sexe}
                       onValueChange={(v) =>
@@ -166,7 +192,7 @@ function ElevesPage() {
                       </SelectContent>
                     </Select>
                   </td>
-                  <td className="px-5 py-2 text-right">
+                  <td className="px-4 py-2 text-right">
                     <Button
                       variant="ghost"
                       size="sm"

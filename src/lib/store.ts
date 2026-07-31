@@ -20,6 +20,7 @@ export interface Student {
   id: string;
   nom: string;
   prenom: string;
+  matricule: string;
   sexe: Sexe;
   classeId: string;
   yearId: string;
@@ -36,11 +37,22 @@ export interface Grade {
   trimesterId: string;
   devoir: number | null;
   composition: number | null;
+  appreciation: string;
 }
 export interface Selection {
   yearId: string | null;
   trimesterId: string | null;
   classeId: string | null;
+}
+
+export interface Etablissement {
+  nom: string;
+  responsable: string;
+}
+
+export interface AdminAccount {
+  passwordHash: string;
+  salt: string;
 }
 
 export interface DB {
@@ -51,7 +63,8 @@ export interface DB {
   subjects: Subject[];
   grades: Grade[];
   selection: Selection;
-  etablissement: string;
+  etablissement: Etablissement;
+  admin: AdminAccount | null;
 }
 
 const KEY = "ceg-bulletins-v1";
@@ -91,7 +104,8 @@ function seed(): DB {
     subjects,
     grades: [],
     selection: { yearId, trimesterId: "tr-1", classeId: "cl-6" },
-    etablissement: "CEG",
+    etablissement: { nom: "CEG", responsable: "Le Responsable des examens" },
+    admin: null,
   };
 }
 
@@ -124,12 +138,40 @@ export function hydrateStore() {
     const raw = window.localStorage.getItem(KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<DB>;
-      state = { ...seed(), ...parsed, selection: { ...seed().selection, ...parsed.selection } };
+      state = migrate(seed(), parsed);
       emit();
     }
   } catch {
     /* données illisibles : on garde le modèle par défaut */
   }
+}
+
+/** Fusionne les données persistées dans le seed, en gérant les évolutions de schéma. */
+function migrate(base: DB, parsed: Partial<DB>): DB {
+  const etablissement: Etablissement =
+    typeof parsed.etablissement === "string"
+      ? { nom: parsed.etablissement, responsable: base.etablissement.responsable }
+      : { ...base.etablissement, ...parsed.etablissement };
+
+  const students = (parsed.students ?? []).map((s) => ({
+    ...s,
+    matricule: s.matricule ?? "",
+  }));
+
+  const grades = (parsed.grades ?? []).map((g) => ({
+    ...g,
+    appreciation: g.appreciation ?? "",
+  }));
+
+  return {
+    ...base,
+    ...parsed,
+    students,
+    grades,
+    selection: { ...base.selection, ...parsed.selection },
+    etablissement,
+    admin: parsed.admin ?? null,
+  };
 }
 
 function persist() {
@@ -151,6 +193,11 @@ export function useDB(): DB {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
+/** Accès direct au snapshot courant (sans hook) — pour la logique d'auth. */
+export function getDB(): DB {
+  return state;
+}
+
 export function resetAll() {
   state = seed();
   persist();
@@ -163,7 +210,7 @@ export function exportJSON(): string {
 
 export function importJSON(raw: string) {
   const parsed = JSON.parse(raw) as Partial<DB>;
-  state = { ...seed(), ...parsed, selection: { ...seed().selection, ...parsed.selection } };
+  state = migrate(seed(), parsed);
   persist();
   emit();
 }
@@ -229,8 +276,87 @@ export function setGrade(
           trimesterId,
           devoir: field === "devoir" ? value : null,
           composition: field === "composition" ? value : null,
+          appreciation: "",
         },
       ],
     };
+  });
+}
+
+export function setAppreciation(
+  studentId: string,
+  subjectId: string,
+  trimesterId: string,
+  appreciation: string,
+) {
+  update((db) => {
+    const existing = db.grades.find(
+      (g) =>
+        g.studentId === studentId && g.subjectId === subjectId && g.trimesterId === trimesterId,
+    );
+    if (existing) {
+      return {
+        ...db,
+        grades: db.grades.map((g) =>
+          g.id === existing.id ? { ...g, appreciation } : g,
+        ),
+      };
+    }
+    return {
+      ...db,
+      grades: [
+        ...db.grades,
+        {
+          id: uid(),
+          studentId,
+          subjectId,
+          trimesterId,
+          devoir: null,
+          composition: null,
+          appreciation,
+        },
+      ],
+    };
+  });
+}
+
+export interface GradeImportRow {
+  studentId: string;
+  subjectId: string;
+  devoir: number | null;
+  composition: number | null;
+}
+
+export function importGrades(trimesterId: string, rows: GradeImportRow[]) {
+  update((db) => {
+    const index = new Map<string, number>();
+    db.grades.forEach((g, i) => {
+      if (g.trimesterId === trimesterId) index.set(`${g.studentId}|${g.subjectId}`, i);
+    });
+
+    const grades = [...db.grades];
+    for (const r of rows) {
+      const key = `${r.studentId}|${r.subjectId}`;
+      const idx = index.get(key);
+      if (idx !== undefined) {
+        grades[idx] = {
+          ...grades[idx],
+          devoir: r.devoir,
+          composition: r.composition,
+        };
+      } else {
+        grades.push({
+          id: uid(),
+          studentId: r.studentId,
+          subjectId: r.subjectId,
+          trimesterId,
+          devoir: r.devoir,
+          composition: r.composition,
+          appreciation: "",
+        });
+        index.set(key, grades.length - 1);
+      }
+    }
+    return { ...db, grades };
   });
 }

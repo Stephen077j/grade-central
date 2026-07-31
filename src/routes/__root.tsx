@@ -7,12 +7,18 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Lock, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
 
 import appCss from "../styles.css?url";
 import { AppNav } from "@/components/shell";
 import { Toaster } from "@/components/ui/sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { hydrateStore } from "@/lib/store";
+import { createAdmin, initSession, unlock, useSession, verifyPassword } from "@/lib/auth";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
 function NotFoundComponent() {
@@ -132,17 +138,118 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const session = useSession();
 
   useEffect(() => {
     hydrateStore();
+    initSession();
   }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppNav />
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      {session === "unlocked" ? (
+        <>
+          <AppNav />
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+        </>
+      ) : (
+        <AuthGate session={session} />
+      )}
       <Toaster />
     </QueryClientProvider>
+  );
+}
+
+function AuthGate({ session }: { session: "setup" | "locked" }) {
+  const [pwd, setPwd] = useState("");
+  const [pwd2, setPwd2] = useState("");
+
+  const setup = async () => {
+    if (pwd.length < 4) return toast.error("Au moins 4 caractères");
+    if (pwd !== pwd2) return toast.error("Les deux mots de passe ne correspondent pas");
+    try {
+      await createAdmin(pwd);
+      unlock();
+      toast.success("Compte administrateur créé");
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const login = async () => {
+    const ok = await verifyPassword(pwd);
+    if (ok) {
+      unlock();
+      setPwd("");
+    } else {
+      toast.error("Mot de passe incorrect");
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="w-full max-w-sm space-y-6">
+        <div className="text-center">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-primary/10">
+            {session === "setup" ? (
+              <ShieldCheck className="size-7 text-primary" />
+            ) : (
+              <Lock className="size-7 text-primary" />
+            )}
+          </div>
+          <h1 className="mt-4 font-display text-2xl font-semibold">
+            {session === "setup" ? "Premier démarrage" : "Application verrouillée"}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {session === "setup"
+              ? "Créez un mot de passe administrateur pour protéger l'application."
+              : "Saisissez le mot de passe pour reprendre."}
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="auth-pwd">
+              {session === "setup" ? "Nouveau mot de passe" : "Mot de passe"}
+            </Label>
+            <Input
+              id="auth-pwd"
+              type="password"
+              value={pwd}
+              autoFocus
+              onChange={(e) => setPwd(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  if (session === "setup") {
+                    if (pwd2) setup();
+                  } else {
+                    login();
+                  }
+                }
+              }}
+            />
+          </div>
+          {session === "setup" && (
+            <div>
+              <Label htmlFor="auth-pwd2">Confirmer le mot de passe</Label>
+              <Input
+                id="auth-pwd2"
+                type="password"
+                value={pwd2}
+                onChange={(e) => setPwd2(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && setup()}
+              />
+            </div>
+          )}
+          <Button className="w-full" onClick={session === "setup" ? setup : login}>
+            {session === "setup" ? "Créer le compte" : "Déverrouiller"}
+          </Button>
+        </div>
+        <p className="text-center text-xs text-muted-foreground">
+          Les données restent sur cet ordinateur. Aucune connexion internet requise.
+        </p>
+      </div>
+    </div>
   );
 }

@@ -13,12 +13,12 @@ export const Route = createFileRoute("/bulletins")({
       {
         name: "description",
         content:
-          "Générer les bulletins trimestriels avec notes, moyennes, rang et mention, prêts à imprimer ou à enregistrer en PDF.",
+          "Générer les bulletins trimestriels avec notes, moyennes, rang, mention et appréciations, prêts à imprimer ou à enregistrer en PDF.",
       },
       { property: "og:title", content: "Bulletins trimestriels — Bulletins CEG" },
       {
         property: "og:description",
-        content: "Bulletins imprimables avec moyennes, rang et mention par élève.",
+        content: "Bulletins imprimables avec moyennes, rang, mention et signature du responsable.",
       },
     ],
   }),
@@ -51,10 +51,26 @@ function BulletinsPage() {
       <ContextBar />
 
       <div className="no-print panel mb-8 flex flex-wrap items-end gap-4 p-5">
-        <Field label="Nom de l'établissement" className="min-w-64 flex-1">
+        <Field label="Nom de l'établissement" className="min-w-56 flex-1">
           <Input
-            value={db.etablissement}
-            onChange={(e) => update((d) => ({ ...d, etablissement: e.target.value }))}
+            value={db.etablissement.nom}
+            onChange={(e) =>
+              update((d) => ({
+                ...d,
+                etablissement: { ...d.etablissement, nom: e.target.value },
+              }))
+            }
+          />
+        </Field>
+        <Field label="Responsable des examens" className="min-w-56 flex-1">
+          <Input
+            value={db.etablissement.responsable}
+            onChange={(e) =>
+              update((d) => ({
+                ...d,
+                etablissement: { ...d.etablissement, responsable: e.target.value },
+              }))
+            }
           />
         </Field>
         <Field label="Élève">
@@ -87,7 +103,7 @@ function BulletinsPage() {
                   République de Madagascar · Ministère de l'Éducation Nationale
                 </p>
                 <h2 className="mt-2 font-display text-2xl font-semibold">
-                  {db.etablissement || "CEG"}
+                  {db.etablissement.nom || "CEG"}
                 </h2>
                 <p className="mt-1 text-sm">
                   Bulletin de notes — {trimestre?.nom ?? "—"} · Année scolaire{" "}
@@ -98,6 +114,10 @@ function BulletinsPage() {
               <div className="mt-4 grid gap-x-8 gap-y-1 text-sm sm:grid-cols-2">
                 <Ligne label="Nom et prénom" valeur={`${r.student.nom} ${r.student.prenom}`} />
                 <Ligne label="Classe" valeur={classe?.nom ?? "—"} />
+                <Ligne
+                  label="Matricule"
+                  valeur={r.student.matricule || "—"}
+                />
                 <Ligne label="Sexe" valeur={r.student.sexe === "M" ? "Garçon" : "Fille"} />
                 <Ligne label="Effectif de la classe" valeur={String(resultats.length)} />
               </div>
@@ -111,31 +131,43 @@ function BulletinsPage() {
                     <th className="border border-border px-3 py-2 text-center">Composition</th>
                     <th className="border border-border px-3 py-2 text-center">Moyenne</th>
                     <th className="border border-border px-3 py-2 text-center">Moy × Coef</th>
+                    <th className="border border-border px-3 py-2">Appréciation</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {r.lignes.map((l) => (
-                    <tr key={l.subject.id}>
-                      <td className="border border-border px-3 py-1.5">{l.subject.nom}</td>
-                      <td className="border border-border px-3 py-1.5 text-center">
-                        {l.subject.coefficient}
-                      </td>
-                      <td className="border border-border px-3 py-1.5 text-center">
-                        {formatNote(l.devoir, 1)}
-                      </td>
-                      <td className="border border-border px-3 py-1.5 text-center">
-                        {formatNote(l.composition, 1)}
-                      </td>
-                      <td className="border border-border px-3 py-1.5 text-center font-medium">
-                        {formatNote(l.moyenne)}
-                      </td>
-                      <td className="border border-border px-3 py-1.5 text-center">
-                        {l.moyenne === null
-                          ? "—"
-                          : formatNote(l.moyenne * l.subject.coefficient)}
-                      </td>
-                    </tr>
-                  ))}
+                  {r.lignes.map((l) => {
+                    const g = db.grades.find(
+                      (gr) =>
+                        gr.studentId === r.student.id &&
+                        gr.subjectId === l.subject.id &&
+                        gr.trimesterId === trimesterId,
+                    );
+                    return (
+                      <tr key={l.subject.id}>
+                        <td className="border border-border px-3 py-1.5">{l.subject.nom}</td>
+                        <td className="border border-border px-3 py-1.5 text-center">
+                          {l.subject.coefficient}
+                        </td>
+                        <td className="border border-border px-3 py-1.5 text-center">
+                          {formatNote(l.devoir, 1)}
+                        </td>
+                        <td className="border border-border px-3 py-1.5 text-center">
+                          {formatNote(l.composition, 1)}
+                        </td>
+                        <td className="border border-border px-3 py-1.5 text-center font-medium">
+                          {formatNote(l.moyenne)}
+                        </td>
+                        <td className="border border-border px-3 py-1.5 text-center">
+                          {l.moyenne === null
+                            ? "—"
+                            : formatNote(l.moyenne * l.subject.coefficient)}
+                        </td>
+                        <td className="border border-border px-3 py-1.5 text-muted-foreground">
+                          {g?.appreciation || "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
                   <tr className="bg-secondary/60 font-semibold">
                     <td className="border border-border px-3 py-2">Totaux</td>
                     <td className="border border-border px-3 py-2 text-center">
@@ -145,6 +177,7 @@ function BulletinsPage() {
                     <td className="border border-border px-3 py-2 text-center">
                       {formatNote(r.totalCoef > 0 ? r.totalPoints : null)}
                     </td>
+                    <td className="border border-border px-3 py-2" />
                   </tr>
                 </tbody>
               </table>
@@ -168,9 +201,17 @@ function BulletinsPage() {
                 {formatNote(stats.plusFaible)}
               </p>
 
-              <div className="mt-8 flex justify-between text-xs">
-                <span>Visa des parents</span>
-                <span>Le Responsable des examens</span>
+              <div className="mt-8 flex items-end justify-between text-xs">
+                <div className="w-40">
+                  <div className="border-t border-border pt-1">Visa des parents</div>
+                </div>
+                <div className="w-48 text-center">
+                  <div className="min-h-[3rem]" />
+                  <div className="border-t border-border pt-1">
+                    {db.etablissement.responsable}
+                  </div>
+                  <p className="mt-0.5 text-muted-foreground">Responsable des examens</p>
+                </div>
               </div>
             </article>
           ))}

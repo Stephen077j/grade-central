@@ -1,9 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Fragment } from "react";
+import { Fragment, useRef, useState } from "react";
+import { Download, Upload, FileSpreadsheet } from "lucide-react";
+import { toast } from "sonner";
 import { ContextBar, EmptyState, Page, PageHeader } from "@/components/shell";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { findGrade, setGrade, studentsOf, useDB } from "@/lib/store";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { findGrade, importGrades, setGrade, studentsOf, useDB } from "@/lib/store";
 import { formatNote, moyenneMatiere, resultatsClasse, statistiques } from "@/lib/calcul";
+import { generateTemplate, parseImport, type ImportResult } from "@/lib/excel";
 
 export const Route = createFileRoute("/notes")({
   head: () => ({
@@ -12,12 +23,12 @@ export const Route = createFileRoute("/notes")({
       {
         name: "description",
         content:
-          "Saisir les notes de devoir et de composition par élève et par matière, avec calcul immédiat des moyennes.",
+          "Saisir les notes de devoir et de composition par élève et par matière, avec calcul immédiat des moyennes. Import et export Excel.",
       },
       { property: "og:title", content: "Saisie des notes — Bulletins CEG" },
       {
         property: "og:description",
-        content: "Tableau de saisie des notes avec moyennes calculées automatiquement.",
+        content: "Tableau de saisie des notes, import et export Excel.",
       },
     ],
   }),
@@ -30,6 +41,8 @@ function NotesPage() {
   const eleves = studentsOf(db, yearId, classeId);
   const resultats = resultatsClasse(db, yearId, classeId, trimesterId);
   const stats = statistiques(resultats);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
   const parse = (v: string): number | null => {
     if (v.trim() === "") return null;
@@ -38,12 +51,76 @@ function NotesPage() {
     return Math.min(20, Math.max(0, n));
   };
 
+  const classe = db.classes.find((c) => c.id === classeId);
+  const trimestre = db.trimesters.find((t) => t.id === trimesterId);
+  const peutExcel = Boolean(yearId && classeId && trimesterId && eleves.length > 0);
+
+  const telechargerModele = () => {
+    if (!classe || !trimesterId || !trimestre) {
+      toast.error("Sélectionnez une classe et un trimestre");
+      return;
+    }
+    generateTemplate(db, yearId!, classeId!, trimesterId, classe.nom, trimestre.nom);
+    toast.success("Modèle Excel téléchargé");
+  };
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!trimesterId) {
+      toast.error("Sélectionnez un trimestre");
+      e.target.value = "";
+      return;
+    }
+    try {
+      const buf = await file.arrayBuffer();
+      const result = parseImport(db, buf, trimesterId);
+      if (result.updates.length === 0) {
+        setImportResult(result);
+      } else {
+        importGrades(trimesterId, result.updates);
+        setImportResult(result);
+        toast.success(`${result.updates.length} note(s) importée(s)`);
+      }
+    } catch {
+      toast.error("Impossible de lire le fichier Excel");
+    }
+    e.target.value = "";
+  };
+
   return (
     <Page>
       <PageHeader
         titre="Saisie des notes"
         description="Notes sur 20. Dev = devoir, Comp = composition. Tout est enregistré automatiquement."
-      />
+      >
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={telechargerModele}
+            disabled={!peutExcel}
+            title={peutExcel ? "" : "Sélectionnez une classe et un trimestre"}
+          >
+            <Download className="size-4" />
+            Modèle Excel
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => fileRef.current?.click()}
+            disabled={!trimesterId || eleves.length === 0}
+          >
+            <Upload className="size-4" />
+            Importer Excel
+          </Button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={onFile}
+          />
+        </div>
+      </PageHeader>
       <ContextBar />
 
       {!trimesterId || eleves.length === 0 ? (
@@ -148,7 +225,73 @@ function NotesPage() {
           </div>
         </>
       )}
+
+      <Dialog open={importResult !== null} onOpenChange={(o) => !o && setImportResult(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="size-5 text-primary" />
+              Résultat de l'import
+            </DialogTitle>
+            <DialogDescription>
+              {importResult && importResult.updates.length > 0
+                ? `${importResult.updates.length} note(s) enregistrée(s).`
+                : "Aucune note importée."}
+            </DialogDescription>
+          </DialogHeader>
+          {importResult && <ImportDetails result={importResult} />}
+        </DialogContent>
+      </Dialog>
     </Page>
+  );
+}
+
+function ImportDetails({ result }: { result: ImportResult }) {
+  const aWarnings = result.warnings.length;
+  const aEleves = result.elevesManquants.length;
+  const aMatieres = result.matieresManquantes.length;
+  const aucunSouci = aWarnings === 0 && aEleves === 0 && aMatieres === 0;
+
+  return (
+    <div className="space-y-3 text-sm">
+      {aucunSouci && result.updates.length > 0 ? (
+        <p className="text-muted-foreground">Tout est en ordre, aucune anomalie détectée.</p>
+      ) : null}
+
+      {result.warnings.map((w, i) => (
+        <p
+          key={i}
+          className="rounded-md border border-gold/50 bg-gold/15 px-3 py-2 text-gold-foreground"
+        >
+          {w}
+        </p>
+      ))}
+
+      {aEleves > 0 && (
+        <div>
+          <p className="font-medium">Élèves non reconnus ({aEleves}) :</p>
+          <ul className="mt-1 list-disc pl-5 text-muted-foreground">
+            {result.elevesManquants.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Vérifiez l'orthographe ou inscrivez-les dans la page Élèves.
+          </p>
+        </div>
+      )}
+
+      {aMatieres > 0 && (
+        <div>
+          <p className="font-medium">Matières non reconnues ({aMatieres}) :</p>
+          <ul className="mt-1 list-disc pl-5 text-muted-foreground">
+            {result.matieresManquantes.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }
 
