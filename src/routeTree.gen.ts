@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AnneesRouteImport } from './routes/annees'
 import { Route as ClassesRouteImport } from './routes/classes'
+import { Route as ElevesRouteImport } from './routes/eleves'
 import { Route as MatieresRouteImport } from './routes/matieres'
 
 const IndexRoute = IndexRouteImport.update({
@@ -29,6 +30,11 @@ const ClassesRoute = ClassesRouteImport.update({
   path: '/classes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ElevesRoute = ElevesRouteImport.update({
+  id: '/eleves',
+  path: '/eleves',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MatieresRoute = MatieresRouteImport.update({
   id: '/matieres',
   path: '/matieres',
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/annees': typeof AnneesRoute
   '/classes': typeof ClassesRoute
+  '/eleves': typeof ElevesRoute
   '/matieres': typeof MatieresRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/annees': typeof AnneesRoute
   '/classes': typeof ClassesRoute
+  '/eleves': typeof ElevesRoute
   '/matieres': typeof MatieresRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,22 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/annees': typeof AnneesRoute
   '/classes': typeof ClassesRoute
+  '/eleves': typeof ElevesRoute
   '/matieres': typeof MatieresRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/annees' | '/classes' | '/matieres'
+  fullPaths: '/' | '/annees' | '/classes' | '/eleves' | '/matieres'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/annees' | '/classes' | '/matieres'
-  id: '__root__' | '/' | '/annees' | '/classes' | '/matieres'
+  to: '/' | '/annees' | '/classes' | '/eleves' | '/matieres'
+  id: '__root__' | '/' | '/annees' | '/classes' | '/eleves' | '/matieres'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AnneesRoute: typeof AnneesRoute
   ClassesRoute: typeof ClassesRoute
+  ElevesRoute: typeof ElevesRoute
   MatieresRoute: typeof MatieresRoute
 }
 
@@ -92,6 +102,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClassesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/eleves': {
+      id: '/eleves'
+      path: '/eleves'
+      fullPath: '/eleves'
+      preLoaderRoute: typeof ElevesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/matieres': {
       id: '/matieres'
       path: '/matieres'
@@ -106,6 +123,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnneesRoute: AnneesRoute,
   ClassesRoute: ClassesRoute,
+  ElevesRoute: ElevesRoute,
   MatieresRoute: MatieresRoute,
 }
 export const routeTree = rootRouteImport
